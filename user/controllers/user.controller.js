@@ -84,17 +84,6 @@ module.exports.logout = async(req, res) => {
 
 module.exports.profile = async(req, res) => {
     try {
-        const { userId } = req.query;
-        if (!userId) {
-            return res.status(400).json({ message: 'UserId is required' });
-        }
-        if (userId) {
-            const user = await userModel.findById(userId).select('-password');
-            if (!user) {
-                return res.status(404).json({ message: 'User not found' });
-            }
-            return res.status(200).json(user);
-        }
         return res.status(200).json(req.user);
     } catch (error) {
         return res.status(500).json({ message: error.message });

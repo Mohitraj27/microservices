@@ -9,7 +9,7 @@ module.exports.userAuth = async(req,res,next)=>{
         }
         const isBlacklisted = await blacklisttokenModel.find({token});
         if(isBlacklisted?.length > 0){
-            return res.status(401).json({message: 'Unauthorized'});
+            return res.status(401).json({message: 'JWT Token Expired'});
         }
         const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
         const user = await userModel.findById(decoded._id);

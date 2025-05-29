@@ -3,9 +3,31 @@ const bycrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const blacklisttokenModel = require('../models/blacklisttoken.model');
 
+const validateCredentials = async (email, password) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[\W_]).{8,}$/;
+
+    if (!emailRegex.test(email)) {
+        return { valid: false, message: 'Invalid email address' };
+    }
+
+    if (!passwordRegex.test(password)) {
+        return { valid: false, message: 'Password must be at least 8 characters long and include at least one lowercase letter, one uppercase letter, and one special character' };
+    }
+
+    return { valid: true };
+};
+
 module.exports.register = async(req, res) => {
     try{
         const { name , email, password} = req.body;
+        if(!email || !password){
+            return res.status(400).json({ message: 'Email or Password is a required field' });
+        }
+        const validation = await validateCredentials(email, password);
+        if (!validation.valid) {
+            return res.status(400).json({ message: validation.message });
+        }
         const captain = await captainModel.findOne({email});
         if(captain){
             return res.status(400).json({ message: 'captain already exists'});
@@ -35,7 +57,7 @@ module.exports.login = async(req, res) => {
         }
         const isMatch = await bycrypt.compare(password, captain.password);
         if(!isMatch){
-            return res.status(400).json({message:'Invalid email or password'});
+            return res.status(400).json({message:'Incorrect Password'});
         }
         const token = jwt.sign({_id: captain._id}, process.env.JWT_SECRET_KEY, { expiresIn: '1h' });
         delete captain._doc.password;
@@ -59,7 +81,7 @@ module.exports.logout = async(req, res) => {
 
 module.exports.profile = async(req, res) => {
     try{
-        res.send(req.captain);
+        return res.status(200).json(req.captain);
     }catch(error){
         return res.status(500).json({message: error.message})
     }
