@@ -1,11 +1,12 @@
+require('dotenv').config();
 const express = require('express');
 const expressProxy = require('express-http-proxy');
 
 const app = express();
 
-app.use('/user', expressProxy('http://localhost:3001'));
-app.use('/captain', expressProxy('http://localhost:3002'));
-app.use('/ride', expressProxy('http://localhost:3003'));
-app.listen(3000, () => {
-    console.log('Gateway server listening  on port 3000');
+app.use('/user', expressProxy(process.env.BASE_URL_USER));
+app.use('/captain', expressProxy(process.env.BASE_URL_CAPTAIN));
+app.use('/ride', expressProxy(process.env.BASE_URL_RIDE));
+app.listen(process.env.GATEWAY_PORT, () => {
+    console.log(`Gateway server listening  on port ${process.env.GATEWAY_PORT}`);
 });
