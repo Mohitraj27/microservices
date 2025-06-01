@@ -2,7 +2,8 @@ const captainModel = require('../models/captain.model');
 const bycrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const blacklisttokenModel = require('../models/blacklisttoken.model');
-
+const { subscribeToQueue ,publishToQueue} = require('../service/rabbit')
+const pendingRequests = [];
 const validateCredentials = async (email, password) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[\W_]).{8,}$/;
@@ -97,3 +98,19 @@ module.exports.toggleAvailability = async(req, res) => {
         return res.status(500).json({message: error.message})
     }
 }
+module.exports.waitForNewRide = async(req, res) => {
+    // Set a timeout for long pooling (30 seconds)
+    req.setTimeout(30000,() => {
+        res.status(204).json({message: 'No new ride found'}).end();
+    });
+    pendingRequests.push(res);
+}
+subscribeToQueue("new-ride", async (data) => {
+    const rideData = JSON.parse(data);
+    //send the new Ride to all the pending requests
+    pendingRequests.forEach((res) => {
+        res.status(200).json({message: 'New ride found', ride: rideData}).end();
+    });
+    // clear the pending requests
+    pendingRequests.length = 0;
+})
