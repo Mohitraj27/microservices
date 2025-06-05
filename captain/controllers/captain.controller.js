@@ -43,7 +43,7 @@ module.exports.register = async(req, res) => {
         const token = jwt.sign({_id: newcaptain._id}, process.env.JWT_SECRET_KEY, { expiresIn: '1h' });
         res.cookie('captain_auth_token', token);
         delete newcaptain._doc.password;
-        res.send({message: 'captain registered successfully',token, newcaptain});
+        res.send({message: 'captain registered successfully!',token, newcaptain});
     }catch(err){
         return res.status(500).json({message: err.message})
     }   
