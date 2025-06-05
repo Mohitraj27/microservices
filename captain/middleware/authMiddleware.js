@@ -3,7 +3,7 @@ const captainModel = require('../models/captain.model');
 const blacklisttokenModel = require('../models/blacklisttoken.model');
 module.exports.captainAuth = async(req,res,next)=>{
     try{
-        const token = req.cookies?.token || req.headers?.authorization?.split(' ')[ 1 ];
+        const token = req.cookies?.captain_auth_token || req.headers?.authorization?.split(' ')[ 1 ];
         if(!token){
             return res.status(401).json({message: 'Unauthorized'});
         }

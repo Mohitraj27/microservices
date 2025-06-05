@@ -41,7 +41,7 @@ module.exports.register = async(req, res) => {
         });
         await newcaptain.save();
         const token = jwt.sign({_id: newcaptain._id}, process.env.JWT_SECRET_KEY, { expiresIn: '1h' });
-        res.cookie('token', token);
+        res.cookie('captain_auth_token', token);
         delete newcaptain._doc.password;
         res.send({message: 'captain registered successfully',token, newcaptain});
     }catch(err){
@@ -62,7 +62,7 @@ module.exports.login = async(req, res) => {
         }
         const token = jwt.sign({_id: captain._id}, process.env.JWT_SECRET_KEY, { expiresIn: '1h' });
         delete captain._doc.password;
-        res.cookie('token', token);
+        res.cookie('captain_auth_token', token);
         res.send({message: 'captain logged in successfully', token, captain});
     }catch(err){
         return res.status(500).json({message: err.message})
@@ -71,9 +71,9 @@ module.exports.login = async(req, res) => {
 
 module.exports.logout = async(req, res) => {
     try{
-        const token = req.cookies.token;
-        await blacklisttokenModel.create({token});
-        res.clearCookie('token');
+        const token = req.cookies.captain_auth_token;
+        await blacklisttokenModel.create({token: token});
+        res.clearCookie('captain_auth_token');
         res.send({message: 'captain logged out successfully'});
     }catch(error){
         return res.status(500).json({message: error.message})
@@ -106,11 +106,24 @@ module.exports.waitForNewRide = async(req, res) => {
     pendingRequests.push(res);
 }
 subscribeToQueue("new-ride", async (data) => {
-    const rideData = JSON.parse(data);
-    //send the new Ride to all the pending requests
-    pendingRequests.forEach((res) => {
-        res.status(200).json({message: 'New ride found', ride: rideData}).end();
-    });
-    // clear the pending requests
-    pendingRequests.length = 0;
+    try {
+        let rideData = JSON.parse(data);
+        if (typeof rideData === 'string') {
+            rideData = JSON.parse(rideData);
+        }
+        pendingRequests.forEach((res) => {
+            if (!res.headersSent) {
+                res.status(200).json({ message: 'New ride found', ride: rideData});
+            }
+        });
+        
+        pendingRequests.length = 0;
+    } catch (error) {
+        pendingRequests.forEach((res) => {
+            if (!res.headersSent) {
+                res.status(500).json({ message: 'Failed to processing ride data'});
+            }
+        });
+        pendingRequests.length = 0;
+    }
 })
