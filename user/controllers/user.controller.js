@@ -101,7 +101,9 @@ module.exports.profile = async(req, res) => {
             destination: ride.destination,
             captain: ride.captain,
             status: ride.status,
-            createdAt: ride.createdAt
+            estimated_fare: ride.estimated_fare,
+            createdAt: ride.createdAt,
+            updatedAt: ride.updatedAt
           }))
         };
         return res.status(200).json(response);

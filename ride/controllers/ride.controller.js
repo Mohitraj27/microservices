@@ -6,14 +6,16 @@ module.exports.createRide = async(req, res, next) => {
     if(!pickup || !destination){
         return res.status(400).json({message: 'pickup and destination is needed to create a ride'});
     }
+    const estimated_fare = Math.floor(Math.random() * (9999 - 100 + 1)) + 100;
     const newRide = await rideModel({
         user: {
             _id: req.user?._id,
             name: req.user?.name,
             email: req.user?.email
         },
-        pickup,
-        destination
+        pickup: pickup,
+        destination: destination,
+        estimated_fare: estimated_fare
     });
     publishToQueue("new-ride",JSON.stringify(newRide));
    await newRide.save();
@@ -103,6 +105,16 @@ module.exports.rideStarted = async (req, res, next) => {
 subscribeToQueue('get-user-rides', async (msg, channel, msgObj) => {
     const data = JSON.parse(msg);
     const rides = await rideModel.find({'user._id': data.userId});
+    channel.sendToQueue(
+        msgObj.properties.replyTo,
+        Buffer.from(JSON.stringify(rides)),
+        { correlationId: msgObj.properties.correlationId }
+    );
+    channel.ack(msgObj);
+});
+subscribeToQueue('get-captain-rides', async (msg, channel, msgObj) => {
+    const data = JSON.parse(msg);
+    const rides = await rideModel.find({'captain._id': data.captainId});
     channel.sendToQueue(
         msgObj.properties.replyTo,
         Buffer.from(JSON.stringify(rides)),

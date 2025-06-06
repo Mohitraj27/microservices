@@ -34,6 +34,10 @@ const rideSchema = new mongoose.Schema({
     type: String,
     required: true
    },
+   estimated_fare: {
+    type: Number,
+    required: true
+   },
    status : {
     type: String,
     enum: ['requested', 'accepted','started', 'rejected', 'completed'],

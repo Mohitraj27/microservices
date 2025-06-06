@@ -2,7 +2,8 @@ const captainModel = require('../models/captain.model');
 const bycrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const blacklisttokenModel = require('../models/blacklisttoken.model');
-const { subscribeToQueue ,publishToQueue} = require('../service/rabbit')
+const { subscribeToQueue ,publishToQueue} = require('../service/rabbit');
+const { rpcRequest } = require('../service/rabbit');
 const pendingRequests = [];
 const validateCredentials = async (email, password) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -82,7 +83,26 @@ module.exports.logout = async(req, res) => {
 
 module.exports.profile = async(req, res) => {
     try{
-        return res.status(200).json(req.captain);
+        const captainId = req.captain._id;
+        const rides = await rpcRequest('get-captain-rides', { captainId });
+        const captain = req.captain.toObject ? req.captain.toObject() : req.captain;
+        const response = {
+          _id: captain._id,
+          name: captain.name,
+          email: captain.email,
+          message: 'Your rides history fetched successfully',
+          rides: rides?.map(ride => ({
+            _id: ride._id,
+            pickup: ride.pickup,
+            destination: ride.destination,
+            status: ride.status,
+            user: ride.user,
+            estimated_fare: ride.estimated_fare,
+            createdAt: ride.createdAt,
+            updatedAt: ride.updatedAt
+          }))
+        };
+        return res.status(200).json(response);
     }catch(error){
         return res.status(500).json({message: error.message})
     }
