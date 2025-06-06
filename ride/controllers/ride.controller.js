@@ -49,8 +49,8 @@ module.exports.completeRide = async (req, res, next) => {
     if (!ride) {
         return res.status(404).json({ message: 'Ride not found' });
     }
-    if (!isValidTransition(ride.status, 'started')) {
-        return res.status(400).json({ message: `Invalid transition from '${ride.status}' to 'started'` });
+    if (!isValidTransition(ride.status, 'completed')) {
+        return res.status(400).json({ message: `Invalid transition from '${ride.status}' to 'completed'` });
     }
     ride.status = 'completed';
     await ride.save();
@@ -64,8 +64,8 @@ module.exports.rideStarted = async (req, res, next) => {
     if (!ride) {
         return res.status(404).json({ message: 'Ride not found' });
     }
-    if (!isValidTransition(ride.status, 'completed')) {
-        return res.status(400).json({ message: `Invalid transition from '${ride.status}' to 'completed'` });
+    if (!isValidTransition(ride.status, 'started')) {
+        return res.status(400).json({ message: `Invalid transition from '${ride.status}' to 'started'` });
     }
     ride.status = 'started';
     await ride.save();
