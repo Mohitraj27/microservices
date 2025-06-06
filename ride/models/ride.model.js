@@ -18,7 +18,7 @@ const rideSchema = new mongoose.Schema({
    },
    status : {
     type: String,
-    enum: ['requested', 'accepted', 'rejected', 'completed'],
+    enum: ['requested', 'accepted','started', 'rejected', 'completed'],
     default: 'requested',
    }
 },{

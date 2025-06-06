@@ -105,7 +105,28 @@ module.exports.acceptedRide = async (req, res) => {
         if (!responded) {
             responded = true;
             clearTimeout(timeout); 
-            res.send({ message: 'Ride accepted successfully', ride: ride });
+            res.send({ message: 'Captain accepted the ride', ride: ride });
+        }
+    });
+    rideEventEmitter.once('ride-started', (ride) => {
+        if (!responded) {
+            responded = true;
+            clearTimeout(timeout);
+            res.send({ message: 'Captain started the ride', ride: ride });
+        }
+    })
+    rideEventEmitter.once('ride-rejected', (ride) => {
+        if (!responded) {
+            responded = true;
+            clearTimeout(timeout);
+            res.send({ message: 'Captain rejected the ride', ride: ride });
+        }
+    });
+    rideEventEmitter.once('ride-completed', (ride) => {
+        if (!responded) {
+            responded = true;
+            clearTimeout(timeout);
+            res.send({ message: 'Captain completed the ride', ride: ride });
         }
     });
 };
@@ -116,4 +137,25 @@ subscribeToQueue('ride-accepted', (message) => {
         data = JSON.parse(data);
     }
     rideEventEmitter.emit('ride-accepted', data);
+});
+subscribeToQueue('ride-started', (message) => {
+    let data = JSON.parse(message);
+    if (typeof data === 'string') {
+        data = JSON.parse(data);
+    }
+    rideEventEmitter.emit('ride-started', data);
+});
+subscribeToQueue('ride-completed', (message) => {
+    let data = JSON.parse(message);
+    if (typeof data === 'string') {
+        data = JSON.parse(data);
+    }
+    rideEventEmitter.emit('ride-completed', data);
+});
+subscribeToQueue('ride-rejected', (message) => {
+    let data = JSON.parse(message);
+    if (typeof data === 'string') {
+        data = JSON.parse(data);
+    }
+    rideEventEmitter.emit('ride-rejected', data);
 });
