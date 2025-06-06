@@ -2,11 +2,29 @@ const mongoose = require('mongoose');
 
 const rideSchema = new mongoose.Schema({
    captain:{
-    type: mongoose.Schema.Types.ObjectId
+    _id: {
+        type: mongoose.Schema.Types.ObjectId,
+      },
+      name: {
+        type: String,
+      },
+      email: {
+        type: String,
+      },
    },
    user: {
-    type: mongoose.Schema.Types.ObjectId,
-    required: true,
+    _id: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true
+      },
+      name: {
+        type: String,
+        required: true
+      },
+      email: {
+        type: String,
+        required: true
+      }
    },
    pickup: {
     type: String,

@@ -3,8 +3,15 @@ const { subscribeToQueue ,publishToQueue} = require('../service/rabbit')
 const { isValidTransition }= require('../utils/rideStatus.helper.');
 module.exports.createRide = async(req, res, next) => {
     const { pickup, destination } = req.body;
+    if(!pickup || !destination){
+        return res.status(400).json({message: 'pickup and destination is needed to create a ride'});
+    }
     const newRide = await rideModel({
-        user: req.user._id,
+        user: {
+            _id: req.user?._id,
+            name: req.user?.name,
+            email: req.user?.email
+        },
         pickup,
         destination
     });
@@ -23,7 +30,11 @@ module.exports.acceptRide = async(req, res,next) => {
         return res.status(400).json({ message: `Invalid transition from '${ride.status}' to 'accepted'` });
     }   
     ride.status = 'accepted';
-    ride.captain = req.captain._id;
+    ride.captain = {
+        _id: req.captain._id,
+        name: req.captain.name,
+        email: req.captain.email,
+    };
     await ride.save();
     publishToQueue("ride-accepted",JSON.stringify(ride));
     next();
@@ -39,7 +50,11 @@ module.exports.rejectRide = async (req, res, next) => {
         return res.status(400).json({ message: `Invalid transition from '${ride.status}' to 'rejected'` });
     }    
     ride.status = 'rejected';
-    ride.captain = req.captain._id;
+    ride.captain = {
+        _id: req.captain._id,
+        name: req.captain.name,
+        email: req.captain.email,
+    };
     await ride.save();
     publishToQueue("ride-rejected", JSON.stringify(ride));
     next();
@@ -55,7 +70,11 @@ module.exports.completeRide = async (req, res, next) => {
         return res.status(400).json({ message: `Invalid transition from '${ride.status}' to 'completed'` });
     }
     ride.status = 'completed';
-    ride.captain = req.captain._id;
+    ride.captain = {
+        _id: req.captain._id,
+        name: req.captain.name,
+        email: req.captain.email,
+    };
     await ride.save();
     publishToQueue("ride-completed", JSON.stringify(ride));
     next();
@@ -71,7 +90,11 @@ module.exports.rideStarted = async (req, res, next) => {
         return res.status(400).json({ message: `Invalid transition from '${ride.status}' to 'started'` });
     }
     ride.status = 'started';
-    ride.captain = req.captain._id;
+    ride.captain = {
+        _id: req.captain._id,
+        name: req.captain.name,
+        email: req.captain.email,
+    };
     await ride.save();
     publishToQueue("ride-started", JSON.stringify(ride));
     next();
@@ -79,7 +102,7 @@ module.exports.rideStarted = async (req, res, next) => {
 };
 subscribeToQueue('get-user-rides', async (msg, channel, msgObj) => {
     const data = JSON.parse(msg);
-    const rides = await rideModel.find({ user: data.userId });
+    const rides = await rideModel.find({'user._id': data.userId});
     channel.sendToQueue(
         msgObj.properties.replyTo,
         Buffer.from(JSON.stringify(rides)),
