@@ -13,10 +13,10 @@ async function connect() {
 async function subscribeToQueue(queueName, callback) {
     if(!channel) await connect();
     await channel.assertQueue(queueName);
-    channel.consume(queueName, (message) => {
-        if (message !== null) {
-            callback(message.content.toString());
-            channel.ack(message);
+    channel.consume(queueName, (msg) => {
+        if (msg !== null) {
+            const msgContent = msg.content.toString();
+            callback(msgContent, channel, msg); 
         }
     });
 }

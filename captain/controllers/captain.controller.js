@@ -54,7 +54,7 @@ module.exports.login = async(req, res) => {
         const { email, password } = req.body;
         const captain = await captainModel.findOne({email}).select('+password');
         if(!captain){
-            return res.status(400).json({message:'Invalid email or password'});
+            return res.status(400).json({message:'Captain does not exist'});
         }
         const isMatch = await bycrypt.compare(password, captain.password);
         if(!isMatch){

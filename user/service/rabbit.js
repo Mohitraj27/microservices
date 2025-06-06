@@ -1,5 +1,5 @@
 const amqp = require('amqplib');
-
+const { v4: uuidv4 } = require('uuid');
 const RABBITMQ_URL = process.env.RABBITMQ_URL;
 
 let connection, channel;
@@ -27,4 +27,21 @@ async function publishToQueue(queueName,data) {
     channel.sendToQueue(queueName, Buffer.from(JSON.stringify(data)));
 }
 
-module.exports = { subscribeToQueue, publishToQueue, connect };
+async function rpcRequest(queueName, data) {
+    if (!channel) await connect();
+    const correlationId = uuidv4();
+    const replyQueue = await channel.assertQueue('', { exclusive: true });
+    const dataPromise = new Promise((resolve, reject) => {
+        channel.consume(replyQueue.queue, (msg) => {
+            if (msg.properties.correlationId === correlationId) {
+                resolve(JSON.parse(msg.content.toString()));
+            }
+        }, { noAck: true });
+        channel.sendToQueue(queueName, Buffer.from(JSON.stringify(data)), {
+            correlationId,
+            replyTo: replyQueue.queue
+        });
+    });
+    return dataPromise;
+}
+module.exports = { subscribeToQueue, publishToQueue, connect ,rpcRequest};

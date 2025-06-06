@@ -23,6 +23,7 @@ module.exports.acceptRide = async(req, res,next) => {
         return res.status(400).json({ message: `Invalid transition from '${ride.status}' to 'accepted'` });
     }   
     ride.status = 'accepted';
+    ride.captain = req.captain._id;
     await ride.save();
     publishToQueue("ride-accepted",JSON.stringify(ride));
     next();
@@ -38,6 +39,7 @@ module.exports.rejectRide = async (req, res, next) => {
         return res.status(400).json({ message: `Invalid transition from '${ride.status}' to 'rejected'` });
     }    
     ride.status = 'rejected';
+    ride.captain = req.captain._id;
     await ride.save();
     publishToQueue("ride-rejected", JSON.stringify(ride));
     next();
@@ -53,6 +55,7 @@ module.exports.completeRide = async (req, res, next) => {
         return res.status(400).json({ message: `Invalid transition from '${ride.status}' to 'completed'` });
     }
     ride.status = 'completed';
+    ride.captain = req.captain._id;
     await ride.save();
     publishToQueue("ride-completed", JSON.stringify(ride));
     next();
@@ -68,8 +71,19 @@ module.exports.rideStarted = async (req, res, next) => {
         return res.status(400).json({ message: `Invalid transition from '${ride.status}' to 'started'` });
     }
     ride.status = 'started';
+    ride.captain = req.captain._id;
     await ride.save();
     publishToQueue("ride-started", JSON.stringify(ride));
     next();
     res.send({ message: 'Ride started successfully', ride });
 };
+subscribeToQueue('get-user-rides', async (msg, channel, msgObj) => {
+    const data = JSON.parse(msg);
+    const rides = await rideModel.find({ user: data.userId });
+    channel.sendToQueue(
+        msgObj.properties.replyTo,
+        Buffer.from(JSON.stringify(rides)),
+        { correlationId: msgObj.properties.correlationId }
+    );
+    channel.ack(msgObj);
+});

@@ -3,6 +3,7 @@ const bycrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const blacklisttokenModel = require('../models/blacklisttoken.model');
 const { subscribeToQueue } = require('../../captain/service/rabbit');
+const { rpcRequest } = require('../service/rabbit')
 const EventEmitter = require('events');
 const rideEventEmitter = new EventEmitter();
 const validateCredentials = async (email, password) => {
@@ -58,7 +59,7 @@ module.exports.login = async(req, res) => {
         }
         const user = await userModel.findOne({email}).select('+password');
         if(!user){
-            return res.status(400).json({message:'Invalid email or password'});
+            return res.status(400).json({message:'User does not exist'});
         }
         const isMatch = await bycrypt.compare(password, user.password);
         if(!isMatch){
@@ -86,12 +87,29 @@ module.exports.logout = async(req, res) => {
 
 module.exports.profile = async(req, res) => {
     try {
-        return res.status(200).json(req.user);
+        const userId = req.user._id;
+        const rides = await rpcRequest('get-user-rides', { userId });
+        const user = req.user.toObject ? req.user.toObject() : req.user;
+        const response = {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          message: 'Your rides history fetched successfully',
+          rides: rides?.map(ride => ({
+            _id: ride._id,
+            pickup: ride.pickup,
+            destination: ride.destination,
+            captain: ride.captain,
+            status: ride.status,
+            createdAt: ride.createdAt
+          }))
+        };
+        return res.status(200).json(response);
     } catch (error) {
         return res.status(500).json({ message: error.message });
     }
 }
-module.exports.acceptedRide = async (req, res) => {
+module.exports.rideCurrentUpdate = async (req, res) => {
     let responded = false;
 
     const timeout = setTimeout(() => {
