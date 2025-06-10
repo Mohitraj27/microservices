@@ -7,4 +7,4 @@ function isValidTransition(currentStatus, nextStatus) {
     return VALID_TRANSITIONS[currentStatus]?.includes(nextStatus);
 }
 
-module.exports = { isValidTransition , VALID_TRANSITIONS};
+module.exports = { isValidTransition};

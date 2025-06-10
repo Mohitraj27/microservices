@@ -1,6 +1,7 @@
 const rideModel = require('../models/ride.model');
+const { createRideNotification } = require('../utils/notification.helper');
 const { subscribeToQueue ,publishToQueue} = require('../service/rabbit')
-const { isValidTransition }= require('../utils/rideStatus.helper.');
+const { isValidTransition }= require('../utils/rideStatus.helper');
 module.exports.createRide = async(req, res, next) => {
     const { pickup, destination } = req.body;
     if(!pickup || !destination){
@@ -37,8 +38,14 @@ module.exports.acceptRide = async(req, res,next) => {
         name: req.captain.name,
         email: req.captain.email,
     };
+    publishToQueue("ride-accepted",ride);
+    await createRideNotification(ride,
+        'RIDE_STATUS',
+        `${ride.user.name}, your ride from ${ride.pickup} to ${ride.destination} has been accepted by ${ride.captain.name}.`,
+        `${ride.captain.name}, you have accepted a ride from ${ride.pickup} to ${ride.destination} for ${ride.user.name}.`,
+        'Ride Accepted'
+      );
     await ride.save();
-    publishToQueue("ride-accepted",JSON.stringify(ride));
     next();
     res.send({message: 'Ride accepted successfully', ride});
 }
@@ -57,8 +64,14 @@ module.exports.rejectRide = async (req, res, next) => {
         name: req.captain.name,
         email: req.captain.email,
     };
+    publishToQueue("ride-rejected",ride);
+    await createRideNotification(ride,
+        'RIDE_STATUS',
+        `${ride.user.name}, your ride from ${ride.pickup} to ${ride.destination} has been rejected by ${ride.captain.name}.`,
+        `${ride.captain.name}, you have rejected a ride from ${ride.pickup} to ${ride.destination} for ${ride.user.name}.`,
+        'Ride Rejected'
+    );
     await ride.save();
-    publishToQueue("ride-rejected", JSON.stringify(ride));
     next();
     res.send({ message: 'Ride rejected successfully', ride });
 };
@@ -77,8 +90,14 @@ module.exports.completeRide = async (req, res, next) => {
         name: req.captain.name,
         email: req.captain.email,
     };
+    publishToQueue("ride-completed", ride);
+    await createRideNotification(ride,
+        'RIDE_STATUS',
+        `${ride.user.name}, your ride from ${ride.pickup} to ${ride.destination} has been completed by ${ride.captain.name}.`,
+        `${ride.captain.name}, you have completed a ride from ${ride.pickup} to ${ride.destination} for ${ride.user.name}.`,
+        'Ride Completed'
+      );
     await ride.save();
-    publishToQueue("ride-completed", JSON.stringify(ride));
     next();
     res.send({ message: 'Ride completed successfully', ride });
 };
@@ -97,8 +116,14 @@ module.exports.rideStarted = async (req, res, next) => {
         name: req.captain.name,
         email: req.captain.email,
     };
+    publishToQueue("ride-started", ride);
+    await createRideNotification(ride,
+        'RIDE_STATUS',
+        `${ride.user.name}, your ride from ${ride.pickup} to ${ride.destination} has been started by ${ride.captain.name}.`,
+        `${ride.captain.name}, you have started a ride from ${ride.pickup} to ${ride.destination} for ${ride.user.name}.`,
+        'Ride Started'
+      );
     await ride.save();
-    publishToQueue("ride-started", JSON.stringify(ride));
     next();
     res.send({ message: 'Ride started successfully', ride });
 };

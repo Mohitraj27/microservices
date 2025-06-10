@@ -84,13 +84,15 @@ module.exports.logout = async(req, res) => {
 module.exports.profile = async(req, res) => {
     try{
         const captainId = req.captain._id;
-        const rides = await rpcRequest('get-captain-rides', { captainId });
+        let rides = await rpcRequest('get-captain-rides', { captainId });
+        rides = Array.isArray(rides) ? rides : [];
         const captain = req.captain.toObject ? req.captain.toObject() : req.captain;
         const response = {
           _id: captain._id,
           name: captain.name,
           email: captain.email,
-          message: 'Your rides history fetched successfully',
+          totalRides: rides.length,
+          message: rides?.length ? 'Your rides history fetched successfully': 'No rides found',
           rides: rides?.map(ride => ({
             _id: ride._id,
             pickup: ride.pickup,
