@@ -9,4 +9,5 @@ router.get('/logout', authMiddleware.captainAuth,captainController.logout);
 router.get('/profile',authMiddleware.captainAuth, captainController.profile);
 router.patch('/toggle-availability', authMiddleware.captainAuth, captainController.toggleAvailability);
 router.get('/new-ride', authMiddleware.captainAuth, captainController.waitForNewRide);
+router.get('/notification-ride-update',authMiddleware.captainAuth,captainController.notifyrideUpdate);
 module.exports = router;

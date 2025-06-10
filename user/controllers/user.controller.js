@@ -159,6 +159,41 @@ module.exports.rideCurrentUpdate = async (req, res) => {
     });
 };
 
+module.exports.notifyrideUpdate = async (req, res) => {
+    try{
+        const userId = req.user._id;
+        let ridesNotification = await rpcRequest('notify-user', { userId });
+        ridesNotification = Array.isArray(ridesNotification) ? ridesNotification : [];
+        const response = {
+            userId: userId,
+            email: req.user.email,
+            totalNotifications: ridesNotification.length,
+            message: ridesNotification?.length ? `${req.user.name}, Your notifications fetched successfully`: `${req.user.name}, No notifications found`,
+            notifications: ridesNotification?.map(notification => ({
+                notificationId: notification._id,
+                rideId: notification.rideId,
+                type: notification.type,
+                title: notification.title,
+                message: notification.message,
+                pickup: notification.pickup,
+                destination: notification.destination,
+                status: notification.status,
+                estimated_fare: notification.estimated_fare,
+                recipientType: notification.recipientType,
+                data: {
+                    captain: notification.data?.captain,
+                    user: notification.data?.user
+                },
+                createdAt: notification.createdAt,
+                updatedAt: notification.updatedAt
+            }))
+        };
+        
+        return res.status(200).json(response);
+    }catch(error){
+        return res.status(500).json({message: error.message})
+    }
+}
 subscribeToQueue('ride-accepted', (message) => {
     let data = JSON.parse(message);
     if(typeof data === 'string'){

@@ -135,6 +135,40 @@ module.exports.waitForNewRide = async(req, res) => {
     });
     pendingRequests.push(res);
 }
+module.exports.notifyrideUpdate = async(req,res)=>{
+    try{
+        const captainId = req.captain._id;
+        let ridesNotification = await rpcRequest('notify-captain', { captainId });
+        ridesNotification = Array.isArray(ridesNotification) ? ridesNotification : [];
+        const response = {
+            captainId: captainId,
+            email: req.captain.email,
+            totalNotifications: ridesNotification.length,
+            message: ridesNotification?.length ? `${req.captain.name}, Your notifications fetched successfully`: `${req.captain.name}, No notifications found`,
+            notifications: ridesNotification?.map(notification => ({
+                notificationId: notification._id,
+                rideId: notification.rideId,
+                type: notification.type,
+                title: notification.title,
+                message: notification.message,
+                pickup: notification.pickup,
+                destination: notification.destination,
+                status: notification.status,
+                estimated_fare: notification.estimated_fare,
+                recipientType: notification.recipientType,
+                data: {
+                    captain: notification.data?.captain,
+                    user: notification.data?.user
+                },
+                createdAt: notification.createdAt,
+                updatedAt: notification.updatedAt
+            }))
+        };
+        return res.status(200).json(response);
+    }catch(error){
+        return res.status(500).json({message: error.message})
+    }
+}
 subscribeToQueue("new-ride", async (data) => {
     try {
         let rideData = JSON.parse(data);

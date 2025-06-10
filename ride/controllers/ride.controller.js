@@ -3,6 +3,7 @@ const { createRideNotification } = require('../utils/notification.helper');
 const { subscribeToQueue ,publishToQueue} = require('../service/rabbit')
 const { isValidTransition }= require('../utils/rideStatus.helper');
 const { executeWithTransaction } = require('../utils/dbTranscation.helper');
+const notification = require('../models/notification.model');
 module.exports.createRide = async(req, res, next) => {
     await executeWithTransaction(async (session) => {
     const { pickup, destination } = req.body;
@@ -162,3 +163,23 @@ subscribeToQueue('get-captain-rides', async (msg, channel, msgObj) => {
     );
     channel.ack(msgObj);
 });
+subscribeToQueue('notify-captain',async(msg,channel,msgObj) => {
+    const data = JSON.parse(msg);
+    const notifyrides = await notification.find({$and:[{'recipientId':data.captainId},{'recipientType':'Captain'}]});
+    channel.sendToQueue(
+        msgObj.properties.replyTo,
+        Buffer.from(JSON.stringify(notifyrides)),
+        { correlationId: msgObj.properties.correlationId }
+    );
+    channel.ack(msgObj);
+});
+subscribeToQueue('notify-user',async(msg,channel,msgObj) => {
+    const data = JSON.parse(msg);
+    const rides = await notification.find({$and:[{'recipientId':data.userId},{'recipientType':'User'}]});
+    channel.sendToQueue(
+        msgObj.properties.replyTo,
+        Buffer.from(JSON.stringify(rides)),
+        { correlationId: msgObj.properties.correlationId }
+    );
+    channel.ack(msgObj);
+})
