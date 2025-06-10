@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const blacklisttokenModel = require('../models/blacklisttoken.model');
 const { subscribeToQueue } = require('../../captain/service/rabbit');
 const { rpcRequest } = require('../service/rabbit')
+const {executeWithTransaction} = require('../utils/dbTranscation.helper');
 const EventEmitter = require('events');
 const rideEventEmitter = new EventEmitter();
 const validateCredentials = async (email, password) => {
@@ -23,29 +24,30 @@ const validateCredentials = async (email, password) => {
 
 module.exports.register = async(req, res) => {
     try{
-        const { name , email, password} = req.body;
-        if(!email || !password){
-            return res.status(400).json({ message: 'Email or Password is a required field' });
-        }
-        const validation = await validateCredentials(email, password);
-        if (!validation.valid) {
-            return res.status(400).json({ message: validation.message });
-        }
-        const user = await userModel.findOne({email});
-        if(user){
-            return res.status(400).json({ message: 'User already exists'});
-        }
-        const hash = await bycrypt.hash(password, 10);
-        const newUser = await userModel.create({
-            name,
-            email,
-            password: hash
-        });
-        await newUser.save();
-        const token = jwt.sign({_id: newUser._id}, process.env.JWT_SECRET_KEY, { expiresIn: '1h' });
-        res.cookie('user_auth_token', token);
-        delete newUser._doc.password;
-        res.send({message: 'User registered successfully',token, newUser});
+        await executeWithTransaction(async (session) => {
+            const { name , email, password} = req.body;
+            if(!email || !password){
+                return res.status(400).json({ message: 'Email or Password is a required field' });
+            }
+            const validation = await validateCredentials(email, password);
+            if (!validation.valid) {
+                return res.status(400).json({ message: validation.message });
+            }
+            const user = await userModel.findOne({email}).session(session);
+            if(user){
+                return res.status(400).json({ message: 'User already exists'});
+            }
+            const hash = await bycrypt.hash(password, 10);
+            const newUser = await userModel.create([{
+                name: name,
+                email: email,
+                password: hash
+            }], {session});
+            const token = jwt.sign({_id: newUser[0]._id}, process.env.JWT_SECRET_KEY, { expiresIn: '1h' });
+            res.cookie('user_auth_token', token);
+            delete newUser[0]._doc.password;
+            res.send({message: 'User registered successfully',token, user: newUser[0]});
+        })
     }catch(err){
         return res.status(500).json({message: err.message})
     }   
@@ -53,22 +55,24 @@ module.exports.register = async(req, res) => {
 
 module.exports.login = async(req, res) => {
     try{
-        const { email, password } = req.body;
-        if(!email || !password){
-            return res.status(400).json({ message: 'Email or Password is a required field' });
-        }
-        const user = await userModel.findOne({email}).select('+password');
-        if(!user){
-            return res.status(400).json({message:'User does not exist'});
-        }
-        const isMatch = await bycrypt.compare(password, user.password);
-        if(!isMatch){
-            return res.status(400).json({message:'Incorrect Password'});
-        }
-        const token = jwt.sign({_id: user._id}, process.env.JWT_SECRET_KEY, { expiresIn: '1h' });
-        delete user._doc.password;
-        res.cookie('user_auth_token', token);
-        res.send({message: 'User logged in successfully', token, user});
+        await executeWithTransaction(async (session) => {
+            const { email, password } = req.body;
+            if(!email || !password){
+                return res.status(400).json({ message: 'Email or Password is a required field' });
+            }
+            const user = await userModel.findOne({ email }).session(session).select('+password');
+            if(!user){
+                return res.status(400).json({message:'User does not exist'});
+            }
+            const isMatch = await bycrypt.compare(password, user.password);
+            if(!isMatch){
+                return res.status(400).json({message:'Incorrect Password'});
+            }
+            const token = jwt.sign({_id: user._id}, process.env.JWT_SECRET_KEY, { expiresIn: '1h' });
+            delete user._doc.password;
+            res.cookie('user_auth_token', token);
+            res.send({message: 'User logged in successfully', token, user});
+        });
     }catch(err){
         return res.status(500).json({message: err.message})
     }   
@@ -76,10 +80,12 @@ module.exports.login = async(req, res) => {
 
 module.exports.logout = async(req, res) => {
     try{
+        await executeWithTransaction(async (session) => {
         const token = req.cookies.user_auth_token;
-        await blacklisttokenModel.create({token: token});
+        await blacklisttokenModel.create([{token: token}], {session});
         res.clearCookie('user_auth_token');
         res.send({message: 'User logged out successfully'});
+        });
     }catch(error){
         return res.status(500).json({message: error.message})
     }   

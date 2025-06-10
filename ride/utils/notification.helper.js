@@ -1,6 +1,6 @@
 const Notification = require('../models/notification.model'); 
 
-const createRideNotification = async (ride, type, userMessage, captainMessage, title) => {
+const createRideNotification = async (ride, type, userMessage, captainMessage, title, session) => {
   const notifications = [
     {
       recipientId: ride.user._id,
@@ -36,7 +36,11 @@ const createRideNotification = async (ride, type, userMessage, captainMessage, t
     }
   ];
 
-  return Notification.insertMany(notifications);
+  try {
+    return await Notification.insertMany(notifications, { session});
+  } catch (error) {
+    throw error; 
+  }
 };
 
 module.exports = { createRideNotification };
