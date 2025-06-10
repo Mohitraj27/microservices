@@ -5,6 +5,7 @@ const blacklisttokenModel = require('../models/blacklisttoken.model');
 const { subscribeToQueue ,publishToQueue} = require('../service/rabbit');
 const { rpcRequest } = require('../service/rabbit');
 const { executeWithTransaction } = require('../utils/dbTranscation.helper');
+const { indexDocument } = require('../utils/elasticSearch.helper');
 const pendingRequests = [];
 const validateCredentials = async (email, password) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -45,6 +46,11 @@ module.exports.register = async(req, res) => {
             const token = jwt.sign({_id: newcaptain[0]._id}, process.env.JWT_SECRET_KEY, { expiresIn: '1h' });
             res.cookie('captain_auth_token', token);
             delete newcaptain[0]._doc.password;
+            await indexDocument("captains", newcaptain[0]._id, {
+                name: newcaptain[0].name,
+                email: newcaptain[0].email,
+                indexedAt: new Date(),
+              });
             res.send({message: 'captain registered successfully!',token, newcaptain: newcaptain[0]});
         });
     }catch(err){

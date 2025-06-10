@@ -5,6 +5,7 @@ const blacklisttokenModel = require('../models/blacklisttoken.model');
 const { subscribeToQueue } = require('../../captain/service/rabbit');
 const { rpcRequest } = require('../service/rabbit')
 const {executeWithTransaction} = require('../utils/dbTranscation.helper');
+const { indexDocument } = require('../utils/elasticSearch.helper');
 const EventEmitter = require('events');
 const rideEventEmitter = new EventEmitter();
 const validateCredentials = async (email, password) => {
@@ -46,6 +47,11 @@ module.exports.register = async(req, res) => {
             const token = jwt.sign({_id: newUser[0]._id}, process.env.JWT_SECRET_KEY, { expiresIn: '1h' });
             res.cookie('user_auth_token', token);
             delete newUser[0]._doc.password;
+            await indexDocument("users", newUser[0]._id, {
+                name: newUser[0].name,
+                email: newUser[0].email,
+                indexedAt: new Date(),
+              });
             res.send({message: 'User registered successfully',token, user: newUser[0]});
         })
     }catch(err){

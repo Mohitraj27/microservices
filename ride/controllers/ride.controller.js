@@ -4,6 +4,7 @@ const { subscribeToQueue ,publishToQueue} = require('../service/rabbit')
 const { isValidTransition }= require('../utils/rideStatus.helper');
 const { executeWithTransaction } = require('../utils/dbTranscation.helper');
 const notification = require('../models/notification.model');
+const { indexDocument , updateDocument} = require('../utils/elasticSearch.helper');
 module.exports.createRide = async(req, res, next) => {
     await executeWithTransaction(async (session) => {
     const { pickup, destination } = req.body;
@@ -22,9 +23,20 @@ module.exports.createRide = async(req, res, next) => {
         estimated_fare: estimated_fare
     });
     publishToQueue("new-ride",JSON.stringify(newRide));
-   await newRide.save({session});
-   next();
-   res.send({message: 'Ride created successfully', newRide});
+    await newRide.save({session});
+    await indexDocument(("rides"), newRide._id, {
+        pickup: newRide.pickup,
+        destination: newRide.destination,
+        estimated_fare: newRide.estimated_fare,
+        userId: newRide.user._id,
+        userName: newRide.user.name,
+        userEmail: newRide.user.email,
+        status: newRide.status,
+        rideId: newRide._id,
+        indexedAt: new Date(),
+    });
+    next();
+    res.send({message: 'Ride created successfully', newRide});
     });
 }
 module.exports.acceptRide = async(req, res,next) => {
@@ -52,6 +64,20 @@ module.exports.acceptRide = async(req, res,next) => {
         session
       );
     await ride.save({ session });
+    await updateDocument(("rides"), ride._id, {
+        pickup: ride.pickup,
+        destination: ride.destination,
+        estimated_fare: ride.estimated_fare,
+        userId: ride.user._id,
+        userName: ride.user.name,
+        userEmail: ride.user.email,
+        captainID: ride.captain?._id,
+        captainName: ride.captain?.name,
+        captainEmail: ride.captain?.email,
+        status: ride.status,
+        rideId: ride._id,
+        indexedAt: new Date(),
+    });
     next();
     res.send({message: 'Ride accepted successfully', ride});
     });
@@ -81,6 +107,20 @@ module.exports.rejectRide = async (req, res, next) => {
         session
     );
     await ride.save({ session });
+    await updateDocument(("rides"), ride._id, {
+        pickup: ride.pickup,
+        destination: ride.destination,
+        estimated_fare: ride.estimated_fare,
+        userId: ride.user._id,
+        userName: ride.user.name,
+        userEmail: ride.user.email,
+        captainID: ride.captain?._id,
+        captainName: ride.captain?.name,
+        captainEmail: ride.captain?.email,
+        status: ride.status,
+        rideId: ride._id,
+        indexedAt: new Date(),
+    });
     next();
     res.send({ message: 'Ride rejected successfully', ride });
     });
@@ -110,6 +150,20 @@ module.exports.completeRide = async (req, res, next) => {
         session
       );
     await ride.save({ session });
+    await updateDocument(("rides"), ride._id, {
+        pickup: ride.pickup,
+        destination: ride.destination,
+        estimated_fare: ride.estimated_fare,
+        userId: ride.user._id,
+        userName: ride.user.name,
+        userEmail: ride.user.email,
+        captainID: ride.captain?._id,
+        captainName: ride.captain?.name,
+        captainEmail: ride.captain?.email,
+        status: ride.status,
+        rideId: ride._id,
+        indexedAt: new Date(),
+    });
     next();
     res.send({ message: 'Ride completed successfully', ride });
     });
@@ -139,6 +193,20 @@ module.exports.rideStarted = async (req, res, next) => {
         session
       );
     await ride.save({ session });
+    await updateDocument(("rides"), ride._id, {
+        pickup: ride.pickup,
+        destination: ride.destination,
+        estimated_fare: ride.estimated_fare,
+        userId: ride.user._id,
+        userName: ride.user.name,
+        userEmail: ride.user.email,
+        captainID: ride.captain?._id,
+        captainName: ride.captain?.name,
+        captainEmail: ride.captain?.email,
+        status: ride.status,
+        rideId: ride._id,
+        indexedAt: new Date(),
+    });
     next();
     res.send({ message: 'Ride started successfully', ride });
     });

@@ -9,4 +9,5 @@ router.put('/accept-ride', authMiddleware.captainAuth,validateTransition('accept
 router.put('/reject-ride', authMiddleware.captainAuth, validateTransition('rejected'),rideController.rejectRide);
 router.put('/ride-started', authMiddleware.captainAuth,validateTransition('started'), rideController.rideStarted);
 router.put('/complete-ride', authMiddleware.captainAuth, validateTransition('completed'),rideController.completeRide);
+
 module.exports = router;
