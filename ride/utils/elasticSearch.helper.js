@@ -9,6 +9,9 @@ const client = new Client({
   }
 });
 
+client.ping().then(() => {
+  console.log('ride service connected to ElasticSearch');
+});
 
 async function indexDocument(indexName, id, document) {
   try {

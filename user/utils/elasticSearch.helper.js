@@ -6,7 +6,11 @@ const client = new Client({
   node: process.env.ELASTICSEARCH_URL,
   auth: {
     apiKey: process.env.ELASTICSEARCH_API_KEY,
-  }
+  },
+});
+
+client.ping().then(() => {
+  console.log('user service connected to ElasticSearch');
 });
 
 

@@ -9,7 +9,9 @@ const client = new Client({
   }
 });
 
-
+client.ping().then(() => {
+  console.log('captain service connected to ElasticSearch');
+})
 async function indexDocument(indexName, id, document) {
   try {
     const response = await client.index({

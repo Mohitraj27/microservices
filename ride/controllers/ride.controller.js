@@ -1,7 +1,6 @@
 const rideModel = require('../models/ride.model');
 const { createRideNotification } = require('../utils/notification.helper');
 const { subscribeToQueue ,publishToQueue} = require('../service/rabbit')
-const { isValidTransition }= require('../utils/rideStatus.helper');
 const { executeWithTransaction } = require('../utils/dbTranscation.helper');
 const notification = require('../models/notification.model');
 const { indexDocument , updateDocument} = require('../utils/elasticSearch.helper');
@@ -46,9 +45,6 @@ module.exports.acceptRide = async(req, res,next) => {
     if(!ride){
         return res.status(404).json({message: 'Ride not found'});
     }
-    if (!isValidTransition(ride.status, 'accepted')) {
-        return res.status(400).json({ message: `Invalid transition from '${ride.status}' to 'accepted'` });
-    }   
     ride.status = 'accepted';
     ride.captain = {
         _id: req.captain._id,
@@ -89,9 +85,6 @@ module.exports.rejectRide = async (req, res, next) => {
     if (!ride) {
         return res.status(404).json({ message: 'Ride not found' });
     }
-    if (!isValidTransition(ride.status, 'rejected')) {
-        return res.status(400).json({ message: `Invalid transition from '${ride.status}' to 'rejected'` });
-    }    
     ride.status = 'rejected';
     ride.captain = {
         _id: req.captain._id,
@@ -132,9 +125,6 @@ module.exports.completeRide = async (req, res, next) => {
     if (!ride) {
         return res.status(404).json({ message: 'Ride not found' });
     }
-    if (!isValidTransition(ride.status, 'completed')) {
-        return res.status(400).json({ message: `Invalid transition from '${ride.status}' to 'completed'` });
-    }
     ride.status = 'completed';
     ride.captain = {
         _id: req.captain._id,
@@ -174,9 +164,6 @@ module.exports.rideStarted = async (req, res, next) => {
     const ride = await rideModel.findById(rideId);
     if (!ride) {
         return res.status(404).json({ message: 'Ride not found' });
-    }
-    if (!isValidTransition(ride.status, 'started')) {
-        return res.status(400).json({ message: `Invalid transition from '${ride.status}' to 'started'` });
     }
     ride.status = 'started';
     ride.captain = {
