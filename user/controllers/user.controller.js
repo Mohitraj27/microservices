@@ -1,3 +1,4 @@
+require('dotenv').config();
 const userModel = require('../models/user.model');
 const bycrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -6,6 +7,7 @@ const { subscribeToQueue } = require('../../captain/service/rabbit');
 const { rpcRequest } = require('../service/rabbit')
 const {executeWithTransaction} = require('../utils/dbTranscation.helper');
 const { indexDocument } = require('../utils/elasticSearch.helper');
+const SALT_ROUNDS = parseInt(process.env.SALT_ROUNDS);
 const EventEmitter = require('events');
 const rideEventEmitter = new EventEmitter();
 const validateCredentials = async (email, password) => {
@@ -38,7 +40,7 @@ module.exports.register = async(req, res) => {
             if(user){
                 return res.status(400).json({ message: 'User already exists'});
             }
-            const hash = await bycrypt.hash(password, 10);
+            const hash = await bycrypt.hash(password, SALT_ROUNDS);
             const newUser = await userModel.create([{
                 name: name,
                 email: email,
@@ -200,6 +202,41 @@ module.exports.notifyrideUpdate = async (req, res) => {
         return res.status(500).json({message: error.message})
     }
 }
+module.exports.changePassword = async (req, res) => {
+    try {
+        await executeWithTransaction(async (session) => {
+            const userId = req.user._id;
+            
+            const { oldPassword, newPassword } = req.body;
+            if (!oldPassword || !newPassword) {
+                throw new Error('Both old and new passwords are required.');
+            }
+            const user = await userModel.findById(userId).select('+password').session(session);
+            if (!user) throw new Error('User not found.');
+            
+            const [isOldPasswordValid, isNewPasswordSame] = await Promise.all([
+                bycrypt.compare(oldPassword, user.password),
+                bycrypt.compare(newPassword, user.password),
+            ]);
+
+            if (!isOldPasswordValid) throw new Error('Old password is incorrect.');
+            if (isNewPasswordSame) throw new Error('New password must be different from the old one.');
+
+            const validation = await validateCredentials(user.email, newPassword);
+            if (!validation.valid) throw new Error(validation.message);
+            
+            user.password = await bycrypt.hash(newPassword, SALT_ROUNDS);
+           
+            await user.save({ session });
+           
+            res.clearCookie('user_auth_token');
+            
+            res.status(200).json({ message: 'Password changed successfully. Please log in again.' });
+        });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
 subscribeToQueue('ride-accepted', (message) => {
     let data = JSON.parse(message);
     if(typeof data === 'string'){

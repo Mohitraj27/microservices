@@ -9,5 +9,6 @@ router.get('/logout', authMiddleware.userAuth,userController.logout);
 router.get('/profile',authMiddleware.userAuth, userController.profile);
 router.get('/ride-current-update', authMiddleware.userAuth, userController.rideCurrentUpdate);
 router.get('/notification-ride-update',authMiddleware.userAuth,userController.notifyrideUpdate);
+router.patch('/change-password',authMiddleware.userAuth, userController.changePassword);
 
 module.exports = router;

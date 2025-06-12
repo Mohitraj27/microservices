@@ -10,5 +10,6 @@ router.get('/profile',authMiddleware.captainAuth, captainController.profile);
 router.patch('/toggle-availability', authMiddleware.captainAuth, captainController.toggleAvailability);
 router.get('/new-ride', authMiddleware.captainAuth, captainController.waitForNewRide);
 router.get('/notification-ride-update',authMiddleware.captainAuth,captainController.notifyrideUpdate);
+router.patch('/change-password', authMiddleware.captainAuth, captainController.changePassword);
 
 module.exports = router;

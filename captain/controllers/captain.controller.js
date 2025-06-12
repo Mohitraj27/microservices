@@ -1,3 +1,4 @@
+require('dotenv').config();
 const captainModel = require('../models/captain.model');
 const bycrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -6,6 +7,7 @@ const { subscribeToQueue ,publishToQueue} = require('../service/rabbit');
 const { rpcRequest } = require('../service/rabbit');
 const { executeWithTransaction } = require('../utils/dbTranscation.helper');
 const { indexDocument } = require('../utils/elasticSearch.helper');
+const SALT_ROUNDS = parseInt(process.env.SALT_ROUNDS);
 const pendingRequests = [];
 const validateCredentials = async (email, password) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -37,7 +39,7 @@ module.exports.register = async(req, res) => {
             if(captain){
                 return res.status(400).json({ message: 'captain already exists'});
             }
-            const hash = await bycrypt.hash(password, 10);
+            const hash = await bycrypt.hash(password, SALT_ROUNDS);
             const newcaptain = await captainModel.create([{
                 name,
                 email,
@@ -175,6 +177,35 @@ module.exports.notifyrideUpdate = async(req,res)=>{
         return res.status(500).json({message: error.message})
     }
 }
+module.exports.changePassword = async (req, res) => {
+    try {
+        await executeWithTransaction(async (session) => {
+            const captainId = req.captain._id;
+            const { oldPassword, newPassword } = req.body;
+            if (!oldPassword || !newPassword) {
+                throw new Error('Both old and new passwords are required.');
+            }
+            const captain = await captainModel.findById(captainId).select('+password').session(session);
+            if (!captain) throw new Error('Captain not found.');
+            const [isOldPasswordValid, isNewPasswordSame] = await Promise.all([
+                bycrypt.compare(oldPassword, captain.password),
+                bycrypt.compare(newPassword, captain.password),
+            ]);
+
+            if (!isOldPasswordValid) throw new Error('Old password is incorrect.');
+            if (isNewPasswordSame) throw new Error('New password must be different from the old one.');
+
+            const validation = await validateCredentials(captain.email, newPassword);
+            if (!validation.valid) throw new Error(validation.message);
+            captain.password = await bycrypt.hash(newPassword, SALT_ROUNDS);
+            await captain.save({ session });
+            res.clearCookie('captain_auth_token');
+            res.status(200).json({ message: 'Password changed successfully. Please log in again.' });
+        });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
 subscribeToQueue("new-ride", async (data) => {
     try {
         let rideData = JSON.parse(data);
