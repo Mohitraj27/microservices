@@ -2,6 +2,7 @@ require('dotenv').config();
 const captainModel = require('../models/captain.model');
 const bycrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const blacklisttokenModel = require('../models/blacklisttoken.model');
 const { subscribeToQueue ,publishToQueue} = require('../service/rabbit');
 const { rpcRequest } = require('../service/rabbit');
@@ -29,15 +30,15 @@ module.exports.register = async(req, res) => {
         await executeWithTransaction(async (session) => {
             const { name , email, password} = req.body;
             if(!email || !password){
-                return res.status(400).json({ message: 'Email or Password is a required field' });
+                return res.status(400).json({ error: 'Email or Password is a required field' });
             }
             const validation = await validateCredentials(email, password);
             if (!validation.valid) {
-                return res.status(400).json({ message: validation.message });
+                return res.status(400).json({ error: validation.message });
             }
             const captain = await captainModel.findOne({email}).session(session);
             if(captain){
-                return res.status(400).json({ message: 'captain already exists'});
+                return res.status(400).json({ error: 'captain with this email already exists'});
             }
             const hash = await bycrypt.hash(password, SALT_ROUNDS);
             const newcaptain = await captainModel.create([{
@@ -56,7 +57,7 @@ module.exports.register = async(req, res) => {
             res.send({message: 'captain registered successfully!',token, newcaptain: newcaptain[0]});
         });
     }catch(err){
-        return res.status(500).json({message: err.message})
+        return res.status(500).json({ error: err.message })
     }   
 }
 
@@ -66,11 +67,11 @@ module.exports.login = async(req, res) => {
             const { email, password } = req.body;
             const captain = await captainModel.findOne({email}).session(session).select('+password');
             if(!captain){
-                return res.status(400).json({message:'Captain does not exist'});
+                return res.status(400).json({error :'Captain does not exist'});
             }
             const isMatch = await bycrypt.compare(password, captain.password);
             if(!isMatch){
-                return res.status(400).json({message:'Incorrect Password'});
+                return res.status(400).json({error :'Incorrect Password'});
             }
             const token = jwt.sign({_id: captain._id}, process.env.JWT_SECRET_KEY, { expiresIn: '1h' });
             delete captain._doc.password;
@@ -78,7 +79,7 @@ module.exports.login = async(req, res) => {
             res.send({message: 'captain logged in successfully', token, captain});
         });
     }catch(err){
-        return res.status(500).json({message: err.message})
+        return res.status(500).json({ error: err.message})
     }   
 }
 
@@ -91,7 +92,7 @@ module.exports.logout = async(req, res) => {
         res.send({message: 'captain logged out successfully'});
         })
     }catch(error){
-        return res.status(500).json({message: error.message})
+        return res.status(500).json({ error: error.message })
     }   
 }
 
@@ -120,7 +121,7 @@ module.exports.profile = async(req, res) => {
         };
         return res.status(200).json(response);
     }catch(error){
-        return res.status(500).json({message: error.message})
+        return res.status(500).json({error: error.message})
     }
 }
 
@@ -133,7 +134,7 @@ module.exports.toggleAvailability = async(req, res) => {
         res.send({message: 'Captain availability toggled successfully', captain});
         })
     }catch(error){
-        return res.status(500).json({message: error.message})
+        return res.status(500).json({error: error.message})
     }
 }
 module.exports.waitForNewRide = async(req, res) => {
@@ -174,7 +175,7 @@ module.exports.notifyrideUpdate = async(req,res)=>{
         };
         return res.status(200).json(response);
     }catch(error){
-        return res.status(500).json({message: error.message})
+        return res.status(500).json({error: error.message})
     }
 }
 module.exports.changePassword = async (req, res) => {
@@ -203,7 +204,77 @@ module.exports.changePassword = async (req, res) => {
             res.status(200).json({ message: 'Password changed successfully. Please log in again.' });
         });
     } catch (err) {
-        res.status(500).json({ message: err.message });
+        res.status(500).json({ error: err.message });
+    }
+};
+module.exports.forgotPassword = async (req, res) => {
+    try {
+        await executeWithTransaction(async (session) => {
+            const { email } = req.body;
+            
+            if (!email) {
+                return res.status(400).json({ error: 'Email is required.' });
+            }
+            const captain = await captainModel.findOne({ email: email }).session(session);
+            
+            if (!captain) {
+              return res.status(404).json({ error: 'Captain not found.' });
+            }
+            
+            const resetToken = crypto.randomBytes(32).toString('hex');
+            const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+          
+            captain.resetPasswordToken = hashedToken;
+            captain.resetPasswordExpires = Date.now() + 15 * 60 * 1000; // 15 mins
+           
+            await captain.save({ session });
+          
+            res.status(200).json({ message: 'Reset link sent to email if it exists.',resetToken: resetToken });
+        });
+    } catch(err){
+        res.status(500).json({ error: err.message });
+    }
+};
+module.exports.resetPassword = async (req, res) => {
+    try{
+        await executeWithTransaction(async (session) => {
+
+            const { token, newPassword, confirmNewPassword } = req.body;
+            
+            if (!token || !newPassword || !confirmNewPassword) {
+                return res.status(400).json({ error: 'Required fields are missing' });
+            }
+            
+            if(newPassword !== confirmNewPassword){
+                throw new Error('newPassword and confirmNewPassword should match with each other');
+            }
+            
+            const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+            const captain = await captainModel.findOne({
+                resetPasswordToken: hashedToken,
+                resetPasswordExpires: { $gt: Date.now() },
+            }).session(session).select('+password');
+        
+            if (!captain) {
+                return res.status(400).json({ error: 'Invalid or expired token' });
+            }
+        
+            const validation = await validateCredentials(captain.email, newPassword);
+            if (!validation.valid) {
+                return res.status(400).json({ error: validation.message });
+            }
+        
+            const hashedPassword = await bycrypt.hash(newPassword, parseInt(process.env.SALT_ROUNDS));
+            captain.password = hashedPassword;
+            captain.resetPasswordToken = undefined;
+            captain.resetPasswordExpires = undefined;
+            
+            await captain.save({ session });
+
+            res.status(200).json({ message: 'Password has been reset successfully, Please login  to continue ' });
+        })
+    }catch(err){
+        res.status(500).json({ error: err.message });
     }
 };
 subscribeToQueue("new-ride", async (data) => {

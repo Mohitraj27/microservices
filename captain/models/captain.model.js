@@ -18,7 +18,13 @@ const captainSchema = new mongoose.Schema({
     isAvailable:{
         type: Boolean,
         default: false
-    }
+    },
+    resetPasswordToken: { 
+        type: String
+    },
+    resetPasswordExpires: {
+        type: Date 
+    },
 })
 
 module.exports = mongoose.model('captain', captainSchema);

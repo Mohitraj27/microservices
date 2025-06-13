@@ -7,6 +7,7 @@ const { subscribeToQueue } = require('../../captain/service/rabbit');
 const { rpcRequest } = require('../service/rabbit')
 const {executeWithTransaction} = require('../utils/dbTranscation.helper');
 const { indexDocument } = require('../utils/elasticSearch.helper');
+const crypto = require('crypto');
 const SALT_ROUNDS = parseInt(process.env.SALT_ROUNDS);
 const EventEmitter = require('events');
 const rideEventEmitter = new EventEmitter();
@@ -30,15 +31,15 @@ module.exports.register = async(req, res) => {
         await executeWithTransaction(async (session) => {
             const { name , email, password} = req.body;
             if(!email || !password){
-                return res.status(400).json({ message: 'Email or Password is a required field' });
+                return res.status(400).json({ error: 'Email or Password is a required field' });
             }
             const validation = await validateCredentials(email, password);
             if (!validation.valid) {
-                return res.status(400).json({ message: validation.message });
+                return res.status(400).json({ error: validation.message });
             }
             const user = await userModel.findOne({email}).session(session);
             if(user){
-                return res.status(400).json({ message: 'User already exists'});
+                return res.status(400).json({ error: 'User already exists'});
             }
             const hash = await bycrypt.hash(password, SALT_ROUNDS);
             const newUser = await userModel.create([{
@@ -57,7 +58,7 @@ module.exports.register = async(req, res) => {
             res.send({message: 'User registered successfully',token, user: newUser[0]});
         })
     }catch(err){
-        return res.status(500).json({message: err.message})
+        return res.status(500).json({error: err.message})
     }   
 }
 
@@ -66,15 +67,15 @@ module.exports.login = async(req, res) => {
         await executeWithTransaction(async (session) => {
             const { email, password } = req.body;
             if(!email || !password){
-                return res.status(400).json({ message: 'Email or Password is a required field' });
+                return res.status(400).json({ error: 'Email or Password is a required field' });
             }
             const user = await userModel.findOne({ email }).session(session).select('+password');
             if(!user){
-                return res.status(400).json({message:'User does not exist'});
+                return res.status(400).json({error:'User does not exist'});
             }
             const isMatch = await bycrypt.compare(password, user.password);
             if(!isMatch){
-                return res.status(400).json({message:'Incorrect Password'});
+                return res.status(400).json({error:'Incorrect Password'});
             }
             const token = jwt.sign({_id: user._id}, process.env.JWT_SECRET_KEY, { expiresIn: '1h' });
             delete user._doc.password;
@@ -82,7 +83,7 @@ module.exports.login = async(req, res) => {
             res.send({message: 'User logged in successfully', token, user});
         });
     }catch(err){
-        return res.status(500).json({message: err.message})
+        return res.status(500).json({error: err.message})
     }   
 }
 
@@ -95,7 +96,7 @@ module.exports.logout = async(req, res) => {
         res.send({message: 'User logged out successfully'});
         });
     }catch(error){
-        return res.status(500).json({message: error.message})
+        return res.status(500).json({error: error.message})
     }   
 }
 
@@ -124,7 +125,7 @@ module.exports.profile = async(req, res) => {
         };
         return res.status(200).json(response);
     } catch (error) {
-        return res.status(500).json({ message: error.message });
+        return res.status(500).json({ error: error.message });
     }
 }
 module.exports.rideCurrentUpdate = async (req, res) => {
@@ -199,7 +200,7 @@ module.exports.notifyrideUpdate = async (req, res) => {
         
         return res.status(200).json(response);
     }catch(error){
-        return res.status(500).json({message: error.message})
+        return res.status(500).json({error: error.message})
     }
 }
 module.exports.changePassword = async (req, res) => {
@@ -234,7 +235,71 @@ module.exports.changePassword = async (req, res) => {
             res.status(200).json({ message: 'Password changed successfully. Please log in again.' });
         });
     } catch (err) {
-        res.status(500).json({ message: err.message });
+        res.status(500).json({ error: err.message });
+    }
+};
+module.exports.forgotPassword = async (req, res) => {
+    try {
+        await executeWithTransaction(async (session) => {
+            const { email } = req.body;
+            if (!email) {
+                return res.status(400).json({ error: 'Email is required.' });
+            }
+            const user = await userModel.findOne({ email: email }).session(session);
+            if (!user) {
+              return res.status(404).json({ error: 'User not found.' });
+            }
+            const resetToken = crypto.randomBytes(32).toString('hex');
+            const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+          
+            user.resetPasswordToken = hashedToken;
+            user.resetPasswordExpires = Date.now() + 15 * 60 * 1000; // 15 mins
+            await user.save({ session });
+          
+          
+            res.status(200).json({ message: 'Reset link sent to email if it exists.',resetToken: resetToken });
+        });
+    } catch(err){
+        res.status(500).json({ error: err.message });
+    }
+};
+module.exports.resetPassword = async (req, res) => {
+    try{
+        await executeWithTransaction(async (session) => {
+
+            const { token, newPassword, confirmNewPassword } = req.body;
+            if (!token || !newPassword || !confirmNewPassword) {
+                return res.status(400).json({ error: 'Required fields token, newPassword or confirmNewPassword are missing' });
+            }
+            if(newPassword !== confirmNewPassword){
+                throw new Error('newPassword and confirmNewPassword should match with each other');
+            }
+            const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+            const user = await userModel.findOne({
+                resetPasswordToken: hashedToken,
+                resetPasswordExpires: { $gt: Date.now() },
+            }).session(session).select('+password');
+        
+            if (!user) {
+                return res.status(400).json({ error: 'Invalid or expired token' });
+            }
+        
+            const validation = await validateCredentials(user.email, newPassword);
+            if (!validation.valid) {
+                return res.status(400).json({ error: validation.message });
+            }
+        
+            const hashedPassword = await bycrypt.hash(newPassword, parseInt(process.env.SALT_ROUNDS));
+            user.password = hashedPassword;
+            user.resetPasswordToken = undefined;
+            user.resetPasswordExpires = undefined;
+            await user.save({ session });
+        
+            res.status(200).json({ message: 'Password has been reset successfully, Please login to continue ' });
+        
+        })
+    }catch(err){
+        res.status(500).json({ error: err.message });
     }
 };
 subscribeToQueue('ride-accepted', (message) => {
