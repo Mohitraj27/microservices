@@ -51,7 +51,7 @@ I designed and implemented a microservices-based ride-hailing backend system usi
 
 - Elasticsearch is used which boosts search/query performance using indexes (user, captain, ride).
 
-## 🔀 RabbitMQ Communication Patterns
+## <img src="https://upload.wikimedia.org/wikipedia/commons/7/71/RabbitMQ_logo.svg" width="100" /> Communication Patterns
 
 ### ✅ Remote Procedure Call (Request-Reply)
 
