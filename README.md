@@ -79,3 +79,6 @@ Flow:
 
 Used for: Sending ride status updates and Creating notifications
 
+
+### API Endpoints
+`https://documenter.getpostman.com/view/25420804/2sB2xBEqPs`
