@@ -79,6 +79,23 @@ Flow:
 
 Used for: Sending ride status updates and Creating notifications
 
+### Long Polling & Async Communication
+This microservices application implements long polling with RabbitMQ for real-time ride-sharing communication:
+
+Implementation Overview
+
+- Ride Creation: When users create rides, requests are published to RabbitMQ queues
+- Captain Monitoring: Captains maintain persistent connections to poll for new ride requests
+- Status Updates: Riders use long polling to receive real-time updates (accepted/rejected/completed) from captain services
+- Message Broker: RabbitMQ manages message queues between user and captain microservices
+
+Benefits
+- Reduces server load compared to constant API polling
+- Provides near real-time responsiveness
+- Efficient async communication between services
+- Scalable message handling through queue management
+
+This architecture ensures seamless real-time updates while maintaining system performance and reliability
 
 ## Run the services in the following order to avoid dependency issues:
 
