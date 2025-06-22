@@ -80,5 +80,78 @@ Flow:
 Used for: Sending ride status updates and Creating notifications
 
 
-### API Endpoints
+## Run the services in the following order to avoid dependency issues:
+
+- Terminal 1: Start Gateway First
+
+  `cd gateway`
+
+  `npx nodemon`
+
+Expected Output:
+
+  
+  `[nodemon] starting node server.js`
+  
+  `Gateway server listening on port 3000`
+  
+
+- Terminal 2: Start User Service
+ 
+  `cd user-service`
+  
+  `npx nodemon`
+
+Expected Output:
+
+`[nodemon] starting node server.js`
+
+`User service connected to MongoDB`
+
+`User service connected to RabbitMQ`
+
+`user service connected to ElasticSearch`
+
+`User service is running on port 3001`
+
+
+- Terminal 3: Start Captain Service
+
+ `cd captain-service`
+  
+  `npx nodemon`
+
+Expected Output:
+
+`[nodemon] starting node server.js`
+
+`Captain service connected to MongoDB`
+
+`Captain service connected to RabbitMQ`
+
+`captain service connected to Elastic Search`
+
+`Captain service is running on port 3002`
+
+
+- Terminal 4: Start Ride Service
+ 
+  `cd ride-service`
+  
+  `npx nodemon`
+
+Expected Output:
+
+  `[nodemon] starting node server.js`
+  
+  `Ride service connected to MongoDB`
+  
+  `Ride service connected to RabbitMQ`
+  
+  `Ride service connected to Elastic Search`
+  
+  `Ride service is running on port 3003`
+
+## API Endpoints
+
 `https://documenter.getpostman.com/view/25420804/2sB2xBEqPs`
